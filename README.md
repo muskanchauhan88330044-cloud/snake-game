@@ -4,20 +4,20 @@ A Python-based Snake Game that combines the classic Nokia Snake experience with 
 
 ---
 
-## 🎮 Features
+##  Features
 
-- 🐍 Classic Snake gameplay
-- 🖐️ Hand gesture control using webcam
-- 📷 Real-time hand tracking with MediaPipe
-- 🍎 Random food generation
-- 📊 Live score tracking
-- 💥 Game Over screen
-- 🔄 Restart functionality
-- ⚡ Smooth gameplay
+-  Classic Snake gameplay
+-  Hand gesture control using webcam
+-  Real-time hand tracking with MediaPipe
+-  Random food generation
+-  Live score tracking
+-  Game Over screen
+-  Restart functionality
+-  Smooth gameplay
 
 ---
 
-## 🛠️ Technologies Used
+## Technologies Used
 
 - Python
 - Pygame
@@ -27,7 +27,7 @@ A Python-based Snake Game that combines the classic Nokia Snake experience with 
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```text
 MY SNAKE GAME/
@@ -49,7 +49,7 @@ MY SNAKE GAME/
 
 ---
 
-## 🚀 Installation
+##  Installation
 
 ### 1. Clone the repository
 
@@ -108,7 +108,7 @@ python main.py
 
 ---
 
-## 📂 Project Files
+##  Project Files
 
 | File | Description |
 |------|-------------|
@@ -119,7 +119,7 @@ python main.py
 
 ---
 
-## 📸 Screenshots
+##  Screenshots
 
 Add your gameplay screenshots here.
 
@@ -131,7 +131,7 @@ screenshots/gameplay.png
 
 ---
 
-## 🔮 Future Improvements
+##  Future Improvements
 
 - Save High Score
 - Multiple Difficulty Levels
@@ -144,7 +144,7 @@ screenshots/gameplay.png
 
 ---
 
-## 💻 Requirements
+##  Requirements
 
 - Python 3.9 or above
 - Webcam
@@ -155,22 +155,22 @@ screenshots/gameplay.png
 
 ---
 
-## 👩‍💻 Author
+##  Author
 
 **Muskan Chauhan**
 
-- 🎓 Computer Science Graduate
-- 🤖 AI Application Developer
-- 🐍 Python Developer
+-  Computer Science Graduate
+-  AI Application Developer
+-  Python Developer
 
 ---
 
-## ⭐ If you like this project
+##  If you like this project
 
-Please give this repository a **⭐ Star** on GitHub.
+Please give this repository a ** Star** on GitHub.
 
 ---
 
-## 📜 License
+##  License
 
 This project is developed for educational and learning purposes.
