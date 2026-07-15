@@ -1,132 +1,144 @@
 
+"""
+Gesture Recognition Module for Nokia Snake Game
+Handles hand tracking and gesture detection using MediaPipe
+"""
+
 import cv2
-import pygame
-import threading
-import time
-from gesture_controller import GestureController
-from snake_game import SnakeGame
+import mediapipe as mp
+import numpy as np
+from typing import Tuple, Optional
 
-
-class GameManager:
+class GestureController:
     def __init__(self):
-        pygame.init()  # ✅ Initialize pygame properly
+        """Initialize MediaPipe hands and gesture detection"""
+        self.mp_hands = mp.solutions.hands
+        self.mp_drawing = mp.solutions.drawing_utils
+        self.mp_face = mp.solutions.face_detection
+        
+        # Initialize hands detection
+        self.hands = self.mp_hands.Hands(
+            static_image_mode=False,
+            max_num_hands=1,
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5
+        )
+        
+        # Initialize face detection
+        self.face_detection = self.mp_face.FaceDetection(
+            model_selection=0,
+            min_detection_confidence=0.5
+        )
+        
+        # Gesture state tracking
+        self.previous_position = None
+        self.gesture_threshold = 0.02
+        self.current_direction = None
+        self.gesture_cooldown = 0
+        self.max_cooldown = 5
+        
+    def detect_gestures(self, frame: np.ndarray) -> Tuple[Optional[str], bool, np.ndarray]:
+        """
+        Detect hand gestures and return direction and pinch state
+        
+        Args:
+            frame: Input video frame
+            
+        Returns:
+            Tuple of (direction, is_pinching, annotated_frame)
+        """
+        # Convert BGR to RGB
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Process hands
+        hand_results = self.hands.process(rgb_frame)
+        
+        # Process face
+        face_results = self.face_detection.process(rgb_frame)
+        
+        # Create annotated frame
+        annotated_frame = frame.copy()
+        
+        direction = None
+        is_pinching = False
+        
+        # Draw face detections
+        if face_results.detections:
+            for detection in face_results.detections:
+                mp.solutions.drawing_utils.draw_detection(annotated_frame, detection)
+        
+        # Process hand landmarks
+        if hand_results.multi_hand_landmarks:
+            for hand_landmarks in hand_results.multi_hand_landmarks:
+                # Draw hand landmarks
+                self.mp_drawing.draw_landmarks(
+                    annotated_frame, 
+                    hand_landmarks, 
+                    self.mp_hands.HAND_CONNECTIONS,
+                    self.mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2),
+                    self.mp_drawing.DrawingSpec(color=(255, 0, 0), thickness=2)
+                )
+                
+                # Get hand center position (wrist)
+                center = hand_landmarks.landmark[self.mp_hands.HandLandmark.MIDDLE_FINGER_MCP]
+                current_pos = np.array([center.x, center.y])
+                
+                
+                # Detect swipe gestures
+                if self.previous_position is not None and self.gesture_cooldown <= 0:
+                    movement = current_pos - self.previous_position
+                    
+                    # Check for significant movement
+                    if np.linalg.norm(movement) > self.gesture_threshold:
+                        if abs(movement[0]) > abs(movement[1]):
+                            # Horizontal movement
+                            if movement[0] > 0:
+                                direction = "RIGHT"
+                            else:
+                                direction = "LEFT"
+                        else:
+                            # Vertical movement
+                            if movement[1] > 0:
+                                direction = "DOWN"
+                            else:
+                                direction = "UP"
+                        
+                        if direction != self.current_direction:
+                            self.current_direction = direction
+                            self.gesture_cooldown = self.max_cooldown
+                
+                # Detect pinch gesture (thumb and index finger close)
+                thumb_tip = hand_landmarks.landmark[self.mp_hands.HandLandmark.THUMB_TIP]
+                index_tip = hand_landmarks.landmark[self.mp_hands.HandLandmark.INDEX_FINGER_TIP]
+                
+                thumb_pos = np.array([thumb_tip.x, thumb_tip.y])
+                index_pos = np.array([index_tip.x, index_tip.y])
+                
+                distance = np.linalg.norm(thumb_pos - index_pos)
+                is_pinching = distance < 0.05
+                
+                # Draw pinch indicator
+                if is_pinching:
+                    cv2.putText(annotated_frame, "SPEED BOOST!", (10, 30), 
+                              cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+                
+                self.previous_position = current_pos
+        
+        # Update cooldown
+        if self.gesture_cooldown > 0:
+            self.gesture_cooldown -= 1
+        
+        # Display current direction
+        if self.current_direction:
+            cv2.putText(annotated_frame, f"Direction: {self.current_direction}", 
+                       (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
+        
+        direction = self.current_direction
+        self.current_direction = None
 
-        self.game = SnakeGame()
-        self.gesture_controller = GestureController()
-        self.cap = None
-        self.running = True
-        self.gesture_thread = None
-
-        # Gesture state
-        self.current_gesture = None
-        self.is_speed_boost = False
-
-    def initialize_camera(self):
-        self.cap = cv2.VideoCapture(0)
-        if not self.cap.isOpened():
-            print("Error: Could not open webcam")
-            return False
-
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        return True
-
-    def gesture_detection_loop(self):
-        while self.running and self.cap is not None:
-            ret, frame = self.cap.read()
-            if not ret:
-                continue
-
-            frame = cv2.flip(frame, 1)
-
-            gesture, pinch, annotated_frame = self.gesture_controller.detect_gestures(frame)
-
-            self.current_gesture = gesture
-            self.is_speed_boost = pinch
-
-            cv2.imshow('Nokia Snake - Gesture Control', annotated_frame)
-
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                self.running = False
-                break
-
-            time.sleep(0.033)
-
-    def run(self):
-        if not self.initialize_camera():
-            print("Failed to initialize camera. Exiting...")
-            return
-
-        # Start gesture thread
-        self.gesture_thread = threading.Thread(target=self.gesture_detection_loop)
-        self.gesture_thread.daemon = True
-        self.gesture_thread.start()
-
-        print("Nokia Snake Game Started!")
-
-        last_update = time.time()
-
-        while self.running:
-            current_time = time.time()
-
-            # Handle pygame events
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        self.running = False
-
-            # Gesture controls
-            if self.current_gesture:
-                self.game.change_direction(self.current_gesture)
-                if self.game.game_over:
-                    self.game.handle_restart(self.current_gesture)
-
-            # Speed boost
-            self.game.set_speed_boost(self.is_speed_boost)
-
-            # Game update
-            target_fps = self.game.get_current_speed()
-            if current_time - last_update >= 1.0 / target_fps:
-                self.game.update()
-                last_update = current_time
-
-            # Draw game
-            self.game.draw()
-            self.game.clock.tick(60)
-
-        self.cleanup()
-
-    def cleanup(self):
-        print("Cleaning up...")
-        self.running = False
-
-        if self.cap is not None:
-            self.cap.release()
-
-        cv2.destroyAllWindows()
-        pygame.quit()  # ✅ Important fix
-
-        if self.gesture_thread and self.gesture_thread.is_alive():
-            self.gesture_thread.join(timeout=1.0)
-
-        print("Game closed successfully!")
-
-
-def main():
-    try:
-        game_manager = GameManager()
-        game_manager.run()
-    except KeyboardInterrupt:
-        print("\nGame interrupted by user")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        import traceback
-        traceback.print_exc()
-
-
-if __name__ == "__main__":
-    main()
-
-
+        return direction, is_pinching, annotated_frame    
+    def reset_gesture_state(self):
+        """Reset gesture detection state"""
+        self.previous_position = None
+        self.current_direction = None
+        self.gesture_cooldown = 0
